@@ -30,6 +30,7 @@ import os
 import shutil
 import pickle
 import cv2
+from state_estimation_codes.state_estimation_quat import StateEstimatorQuaternion
 
 
 sys.path.append(str(Path(__file__).parent.parent))
@@ -307,8 +308,7 @@ if __name__ == '__main__':
             print("==> Wait a little bit for the image thread...")
             time.sleep(1)
 
-
-    # Observer initialization
+    # Disturbance observer initialization
     observer_gain = np.diag(observer_config["gain"]*observer_config["num_points"])
 
     # History
@@ -530,8 +530,7 @@ if __name__ == '__main__':
             history["cbf"].append(CBF)
 
         # Wait for the next control loop
-        # time.sleep(control_loop_wait_time)
-        time.sleep(max(0.01 - (time_loop_end-time_now), 0))
+        time.sleep(max(control_loop_wait_time - (time_loop_end-time_now), 0))
 
 
         # if test_settings["save_scaling_function"]==1:
