@@ -34,12 +34,12 @@
     },
 
     "controller_config":{
-        "mean_gain": [1.0,1.0],
+        "mean_gain": [0.1,0.1],
         "variance_gain": [0.6,0.6],
         "variance_target": [3000, 3000],
         "horizontal_gain": 1.0,
         "vertical_gain": 1.0,
-        "joint_limit_gain": 10,
+        "joint_limit_gain": 1,
         "fix_position_gain": 0.1,
         "desired_relative_position": [0,0,0.5],
         "pbvs_gain_omega": 0.1,
