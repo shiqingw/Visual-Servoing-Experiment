@@ -114,8 +114,8 @@ def image_thread_func():
     global image_thread_stop_global
     # Initialize the ROS subscriber
     rospy.Subscriber('/camera/infra1/image_rect_raw', Image, image_callback)
-    while (not rospy.is_shutdown()) and (image_thread_stop_global == False):
-        rospy.spin()
+    # while (not rospy.is_shutdown()) and (image_thread_stop_global == False):
+    rospy.spin()
     return 
 
 
@@ -255,7 +255,7 @@ if __name__ == '__main__':
     while len(target_corners_global) == 0:
         print("==> Wait a little bit for the image thread...")
         time.sleep(1)
-    
+
     # History
     history = {"time": [],
                 "q": [],
@@ -280,10 +280,10 @@ if __name__ == '__main__':
     cy = intrinsic_matrix[1, 2]
     old_mean_target = np.array([cx,cy], dtype=np.float32)
     old_variance_target = np.array(controller_config["variance_target"], dtype=np.float32)
-    desired_coords = np.array([[-1, -1],
-                                [ 1, -1],
-                                [ 1,  1],
-                                [-1,  1]], dtype = np.float32)
+    desired_coords = np.array([[1, 1],
+                                [ -1, 1],
+                                [ -1,  -1],
+                                [1,  -1]], dtype = np.float32)
     desired_coords = desired_coords*np.sqrt(old_variance_target) + old_mean_target
     mean_target = np.mean(desired_coords[0:num_points,:], axis=0)
     variance_target = np.var(desired_coords[0:num_points,:], axis = 0)
@@ -322,9 +322,9 @@ if __name__ == '__main__':
     ekf_init_val[:,0:2] = corners_raw[0:len(corners_raw),:]
     ekf_init_val[:,2] = corner_depths_raw[0:len(corners_raw),0]
     P0 = np.diag(ekf_config["P0"])
-    Q = np.diag(ekf_config["Q"])
-    R = np.diag(ekf_config["R"])
-    ekf = EKF_IBVS(num_points, ekf_init_val, P0, Q, R, fx, fy, cx, cy)
+    Q_cov = np.diag(ekf_config["Q"])
+    R_cov = np.diag(ekf_config["R"])
+    ekf = EKF_IBVS(num_points, ekf_init_val, P0, Q_cov, R_cov, fx, fy, cx, cy)
     last_ekf_time = time.time()
 
     # Start the control loop
@@ -376,6 +376,28 @@ if __name__ == '__main__':
         omega_in_cam = skew_to_vector(S_in_cam)
         speeds_in_cam = np.hstack((v_in_cam, omega_in_cam))
 
+        # Step and update the EKF
+        current_ekf_time = time.time()
+        ekf.predict(current_ekf_time-last_ekf_time, speeds_in_cam)
+        mesurements = np.hstack((corners_raw, corner_depths_raw[:,np.newaxis]))
+        ekf.update(mesurements)
+        last_ekf_time = current_ekf_time
+
+        # Image jacobian
+        ekf_estimates = ekf.get_updated_state()
+        corners = ekf_estimates[:,0:2]
+        corner_depths = ekf_estimates[:,2]
+        d_hat_ekf = ekf_estimates[0:num_points,3:5].reshape(-1)
+        pixel_coord = np.hstack((corners, np.ones((corners.shape[0],1), dtype=np.float32)))
+        pixel_coord_denomalized = pixel_coord*corner_depths[:,np.newaxis]
+        coord_in_cam = pixel_coord_denomalized @ LA.inv(intrinsic_matrix.T)
+        coord_in_cam = np.hstack((coord_in_cam, np.ones((coord_in_cam.shape[0],1), dtype=np.float32)))
+        J_image_cam = np.zeros((2*corners.shape[0], 6), dtype=np.float32)
+        fx = intrinsic_matrix[0, 0]
+        fy = intrinsic_matrix[1, 1]
+        for ii in range(len(corners)):
+            J_image_cam[2*ii:2*ii+2] = one_point_image_jacobian(coord_in_cam[ii], fx, fy)
+        
         # Update the disturbance observer
         current_dob_time = time.time()
         epsilon += (current_dob_time - last_dob_time) * observer_gain @ (J_image_cam @speeds_in_cam + d_hat_dob)
@@ -384,28 +406,6 @@ if __name__ == '__main__':
         if np.any(np.isnan(d_hat_dob)): 
             print("==> d_hat_dob is nan. Break the loop...")
             break
-
-        # Step and update the EKF
-        current_ekf_time = time.time()
-        ekf.predict(current_ekf_time-last_ekf_time, speeds_in_cam)
-        mesurements = np.hstack((corners_raw, corner_depths_raw))
-        ekf.update(mesurements)
-        last_ekf_time = current_dob_time
-
-        # Image jacobian
-        ekf_estimates = ekf.get_updated_state()
-        corners = ekf_estimates[:,0:2]
-        corner_depths = ekf_estimates[:,2]
-        d_hat_ekf = ekf_estimates[0:num_points,3:5].reshape(-1)
-        pixel_coord = np.hstack((corners, np.ones((corners.shape[0],1), dtype=np.float32)))
-        pixel_coord_denomalized = pixel_coord*corner_depths
-        coord_in_cam = pixel_coord_denomalized @ LA.inv(intrinsic_matrix.T)
-        coord_in_cam = np.hstack((coord_in_cam, np.ones((coord_in_cam.shape[0],1), dtype=np.float32)))
-        J_image_cam = np.zeros((2*corners.shape[0], 6), dtype=np.float32)
-        fx = intrinsic_matrix[0, 0]
-        fy = intrinsic_matrix[1, 1]
-        for ii in range(len(corners)):
-            J_image_cam[2*ii:2*ii+2] = one_point_image_jacobian(coord_in_cam[ii], fx, fy)
 
         # Speed contribution due to movement of the apriltag
         d_true = np.zeros(2*len(corners), dtype=np.float32)
@@ -433,8 +433,8 @@ if __name__ == '__main__':
         xd_yd_position = - fix_position_gain * LA.pinv(J_position) @ error_position
 
         # Map to the camera speed expressed in the camera frame
-        null_mean = np.eye(2*num_points, dtype=np.float32) - LA.pinv(J_mean) @ J_mean
-        null_position = np.eye(2*num_points, dtype=np.float32) - LA.pinv(J_position) @ J_position
+        # null_mean = np.eye(2*num_points, dtype=np.float32) - LA.pinv(J_mean) @ J_mean
+        # null_position = np.eye(2*num_points, dtype=np.float32) - LA.pinv(J_position) @ J_position
         # xd_yd = xd_yd_position + null_position @ xd_yd_mean
         xd_yd = xd_yd_position
         J_active = J_image_cam[0:2*num_points]
@@ -548,8 +548,10 @@ if __name__ == '__main__':
         vel[-2:] = 0
 
         # Robot velocity control
-        vel = np.clip(vel, -0.5*np.pi, 0.5*np.pi)
-        robot.send_joint_command(vel[:7])
+        vel = np.clip(vel, -1.0*np.pi, 1.0*np.pi)
+        print(vel)
+        # if time.time() - time_start > 4:
+        #     robot.send_joint_command(vel[:7])
 
         # Keep for next loop
         dq_executed = vel
@@ -558,7 +560,7 @@ if __name__ == '__main__':
         # Time the loop 
         time_loop_end = time.time()
         loop_time = time_loop_end-time_loop_start
-        print("==> Loop time: ", loop_time)
+        # print("==> Loop time: ", loop_time)
 
         # Record data to history
         history["time"].append(time_loop_start)
@@ -585,6 +587,7 @@ if __name__ == '__main__':
     target_thread_stop_global = True
     apriltag_thread.join()
     image_thread_stop_global = True
+    rospy.signal_shutdown("User requested shutdown")
     image_thread.join()
 
     # Save history data to result_dir
