@@ -271,7 +271,9 @@ if __name__ == '__main__':
                 "d_hat_dob": [],
                 "d_true": [],
                 "loop_time": [],
-                "ekf_estimates": []
+                "ekf_estimates": [],
+                "dob_dt":[],
+                "ekf_dt":[]
                 }
     
     # Adjust mean and variance target to num_points
@@ -379,7 +381,8 @@ if __name__ == '__main__':
 
         # Update the disturbance observer
         current_dob_time = time.time()
-        epsilon += (current_dob_time - last_dob_time) * observer_gain @ (last_J_image_cam_raw @last_speeds_in_cam + d_hat_dob)
+        dob_dt = current_dob_time - last_dob_time
+        epsilon += dob_dt * observer_gain @ (last_J_image_cam_raw @last_speeds_in_cam + d_hat_dob)
         d_hat_dob = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),)) - epsilon
         last_dob_time = current_dob_time
         if np.any(np.isnan(d_hat_dob)): 
@@ -396,7 +399,8 @@ if __name__ == '__main__':
 
         # Step and update the EKF
         current_ekf_time = time.time()
-        ekf.predict(current_ekf_time-last_ekf_time, last_speeds_in_cam)
+        ekf_dt = current_ekf_time-last_ekf_time
+        ekf.predict(ekf_dt, last_speeds_in_cam)
         mesurements = np.hstack((corners_raw, corner_depths_raw[:,np.newaxis]))
         ekf.update(mesurements)
         last_ekf_time = current_ekf_time
@@ -588,6 +592,8 @@ if __name__ == '__main__':
         history["loop_time"].append(loop_time)
         history["ekf_estimates"].append(ekf_estimates)
         history["d_true"].append(d_true)
+        history["dob_dt"].append(dob_dt)
+        history["ekf_dt"].append(ekf_dt)
         if CBF_config["active"] == 1:
             history["cbf"].append(CBF)
 
