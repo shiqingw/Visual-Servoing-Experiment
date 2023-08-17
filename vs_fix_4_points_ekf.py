@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # Choose test settings
     parser = argparse.ArgumentParser(description="Visual servoing")
-    parser.add_argument('--exp_num', default=1, type=int, help="test case number")
+    parser.add_argument('--exp_num', default=10, type=int, help="test case number")
 
     # Set random seed
     seed_num = 0
@@ -396,7 +396,7 @@ if __name__ == '__main__':
 
         # Step and update the EKF
         current_ekf_time = time.time()
-        ekf.predict(current_ekf_time-last_ekf_time, speeds_in_cam)
+        ekf.predict(current_ekf_time-last_ekf_time, last_speeds_in_cam)
         mesurements = np.hstack((corners_raw, corner_depths_raw[:,np.newaxis]))
         ekf.update(mesurements)
         last_ekf_time = current_ekf_time
@@ -558,9 +558,11 @@ if __name__ == '__main__':
 
         # Robot velocity control
         vel = np.clip(vel, -1.0*np.pi, 1.0*np.pi)
-        print(vel)
-        # if time.time() - time_start > 4:
-        #     robot.send_joint_command(vel[:7])
+        # print(vel)
+        # vel = np.zeros_like(vel)
+        if time.time() - time_start > 4:
+            robot.send_joint_command(vel[:7])
+        else: vel = np.zeros_like(vel)
 
         # Keep for next loop
         dq_executed = vel
