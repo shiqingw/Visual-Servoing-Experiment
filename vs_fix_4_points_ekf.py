@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # Choose test settings
     parser = argparse.ArgumentParser(description="Visual servoing")
-    parser.add_argument('--exp_num', default=5, type=int, help="test case number")
+    parser.add_argument('--exp_num', default=1, type=int, help="test case number")
 
     # Set random seed
     seed_num = 0
@@ -301,6 +301,7 @@ if __name__ == '__main__':
     epsilon = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),))
     d_hat_dob = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),)) - epsilon
     last_dob_time = time.time()
+    last_J_image_cam_raw = np.zeros((2*corners_raw.shape[0], 6), dtype=np.float32)
 
     # EKF initialization
     state = robot.get_state()
@@ -374,7 +375,24 @@ if __name__ == '__main__':
         v_in_cam = R_world_to_cam @ v_in_world
         S_in_cam = R_world_to_cam @ skew(omega_in_world) @ R_world_to_cam.T
         omega_in_cam = skew_to_vector(S_in_cam)
-        speeds_in_cam = np.hstack((v_in_cam, omega_in_cam))
+        last_speeds_in_cam = np.hstack((v_in_cam, omega_in_cam))
+
+        # Update the disturbance observer
+        current_dob_time = time.time()
+        epsilon += (current_dob_time - last_dob_time) * observer_gain @ (last_J_image_cam_raw @last_speeds_in_cam + d_hat_dob)
+        d_hat_dob = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),)) - epsilon
+        last_dob_time = current_dob_time
+        if np.any(np.isnan(d_hat_dob)): 
+            print("==> d_hat_dob is nan. Break the loop...")
+            break
+        pixel_coord_raw = np.hstack((corners_raw, np.ones((corners_raw.shape[0],1), dtype=np.float32)))
+        pixel_coord_denomalized_raw = pixel_coord_raw*corner_depths_raw[:,np.newaxis]
+        coord_in_cam_raw = pixel_coord_denomalized_raw @ LA.inv(intrinsic_matrix.T)
+        last_J_image_cam_raw = np.zeros((2*corners_raw.shape[0], 6), dtype=np.float32)
+        fx = intrinsic_matrix[0, 0]
+        fy = intrinsic_matrix[1, 1]
+        for ii in range(len(corners_raw)):
+            last_J_image_cam_raw[2*ii:2*ii+2] = one_point_image_jacobian(coord_in_cam_raw[ii], fx, fy)
 
         # Step and update the EKF
         current_ekf_time = time.time()
@@ -397,15 +415,6 @@ if __name__ == '__main__':
         fy = intrinsic_matrix[1, 1]
         for ii in range(len(corners)):
             J_image_cam[2*ii:2*ii+2] = one_point_image_jacobian(coord_in_cam[ii], fx, fy)
-        
-        # Update the disturbance observer
-        current_dob_time = time.time()
-        epsilon += (current_dob_time - last_dob_time) * observer_gain @ (J_image_cam @speeds_in_cam + d_hat_dob)
-        d_hat_dob = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),)) - epsilon
-        last_dob_time = current_dob_time
-        if np.any(np.isnan(d_hat_dob)): 
-            print("==> d_hat_dob is nan. Break the loop...")
-            break
 
         # Speed contribution due to movement of the apriltag
         d_true = np.zeros(2*len(corners), dtype=np.float32)
