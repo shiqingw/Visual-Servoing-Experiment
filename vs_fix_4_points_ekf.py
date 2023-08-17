@@ -576,6 +576,7 @@ if __name__ == '__main__':
         history["d_hat_dob"].append(d_hat_dob)
         history["loop_time"].append(loop_time)
         history["ekf_estimates"].append(ekf_estimates)
+        history["d_true"].append(d_true)
         if CBF_config["active"] == 1:
             history["cbf"].append(CBF)
 
