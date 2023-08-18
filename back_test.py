@@ -6,24 +6,25 @@ import os
 import json
 import shutil
 from all_utils.vs_utils import one_point_image_jacobian, skew, skew_to_vector
+from pathlib import Path
 
 exp_num = 1
-source_file_exp_name = "exp_010_2023-08-17-14-07-48"
+source_file_exp_name = "exp_001_2023-08-17-21-22-24"
 
 # Load test settings
-test_settings_path = "{}/back_test_settings/test_settings_{:03d}.json".format(str(os.getcwd()), exp_num)
+test_settings_path = "{}/back_test_settings/test_settings_{:03d}.json".format(str(Path(__file__).parent), exp_num)
 with open(test_settings_path, "r", encoding="utf8") as f:
     test_settings = json.load(f)
 
 # Create results directory
-results_dir = "{}/back_test_results/exp_{:03d}".format(str(os.getcwd()), exp_num)
+results_dir = "{}/back_test_results/exp_{:03d}".format(str(Path(__file__).parent), exp_num)
 
 if not os.path.exists(results_dir):
     os.makedirs(results_dir)
 shutil.copy(test_settings_path, results_dir)
 
 # Load history
-root_dir = "{}/results/".format(str(os.getcwd()))
+root_dir = "{}/results/".format(str(Path(__file__).parent))
 source_results_dir = root_dir + source_file_exp_name
 file = source_results_dir +  "/history.pkl"
 with open(file, 'rb') as handle:
@@ -46,6 +47,8 @@ _d_hat_dob = np.array(_history["d_hat_dob"]) # size (N, 8)
 _d_true =  np.array(_history["d_true"]) # size (N, 8)
 _loop_time = np.array(_history["loop_time"]) # size (N, 1)
 _ekf_estimates = np.array(_history["ekf_estimates"]) # size (N, 4, 9)
+_dob_dt = np.array(_history["dob_dt"]) # size (N, 1)
+_ekf_dt = np.array(_history["ekf_dt"]) # size (N, 1)
 
 # Various configs
 camera_config = test_settings["camera_config"]
@@ -88,7 +91,6 @@ corners_raw =  _corners_raw[0,:,:]
 observer_gain = np.diag(observer_config["gain"]*num_points)
 epsilon = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),))
 d_hat_dob = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),)) - epsilon
-last_dob_time = _times[0]
 last_J_image_cam_raw = np.zeros((2*corners_raw.shape[0], 6), dtype=np.float32)
 
 # Initialize EKF
@@ -100,7 +102,6 @@ ekf_init_val = np.zeros((num_points, 9), dtype=np.float32)
 ekf_init_val[:,0:2] = _corners_raw[0,:,:]
 ekf_init_val[:,2] = _corner_depths_raw[0,:]
 ekf = EKF_IBVS(num_points, ekf_init_val, P0, Q_cov, R_cov, fx, fy, cx, cy)
-last_ekf_time = _times[0]
 last_info = _info[0]
 dq_executed = _joint_vel_command[0,:]
 
@@ -121,10 +122,10 @@ for i in range(1,len(_times)):
     corner_depths_raw = _corner_depths_raw[i,:]
 
     # Update the disturbance observer
-    current_dob_time = _times[i]
-    epsilon += (current_dob_time - last_dob_time) * observer_gain @ (last_J_image_cam_raw @last_speeds_in_cam + d_hat_dob)
+    dob_dt = _dob_dt[i]
+    epsilon += dob_dt * observer_gain @ (last_J_image_cam_raw @last_speeds_in_cam + d_hat_dob)
     d_hat_dob = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),)) - epsilon
-    last_dob_time = current_dob_time
+
     if np.any(np.isnan(d_hat_dob)): 
         print("==> d_hat_dob is nan. Break the loop...")
         break
@@ -138,11 +139,10 @@ for i in range(1,len(_times)):
         last_J_image_cam_raw[2*ii:2*ii+2] = one_point_image_jacobian(coord_in_cam_raw[ii], fx, fy)
 
     # Step and update EKF
-    current_ekf_time = _times[i]
-    ekf.predict(current_ekf_time-last_ekf_time, last_speeds_in_cam)
+    ekf_dt = _ekf_dt[i]
+    ekf.predict(ekf_dt, last_speeds_in_cam)
     mesurements = np.hstack((corners_raw, corner_depths_raw[:,np.newaxis]))
     ekf.update(mesurements)
-    last_ekf_time = current_ekf_time
 
     # Pass for next loop
     last_info = _info[i]
@@ -165,6 +165,8 @@ history["joint_vel_command"] = _joint_vel_command[1:,:]
 history["info"] = _info[1:]
 history["loop_time"] = _loop_time[1:]
 history["d_true"] = _d_true[1:,:]
+history["dob_dt"] = _dob_dt[1:]
+history["ekf_dt"] = _ekf_dt[1:]
 
 with open(os.path.join(results_dir, "history.pkl"), "wb") as f:
     pickle.dump(history, f)

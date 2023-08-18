@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # Choose test settings
     parser = argparse.ArgumentParser(description="Visual servoing")
-    parser.add_argument('--exp_num', default=11, type=int, help="test case number")
+    parser.add_argument('--exp_num', default=4, type=int, help="test case number")
 
     # Set random seed
     seed_num = 0
@@ -563,8 +563,8 @@ if __name__ == '__main__':
 
         # Robot velocity control
         vel = np.clip(vel, -1.0*np.pi, 1.0*np.pi)
-        print(vel)
-        vel = np.zeros_like(vel)
+        # print(vel)
+        # vel = np.zeros_like(vel)
         if time.time() - time_start > 4:
             robot.send_joint_command(vel[:7])
         else: vel = np.zeros_like(vel)
