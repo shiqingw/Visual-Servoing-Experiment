@@ -33,6 +33,7 @@ import cv2
 from all_utils.vs_utils import get_homogeneous_transformation, one_point_image_jacobian, skew, skew_to_vector, point_in_image
 from all_utils.proxsuite_utils import init_prosuite_qp
 from all_utils.cvxpylayers_utils import init_cvxpylayer
+from all_utils.joint_velocity_control_utils import bring_to_nominal_q
 from ekf.ekf_ibvs import EKF_IBVS
 
 sys.path.append(str(Path(__file__).parent.parent))
@@ -191,6 +192,11 @@ if __name__ == '__main__':
     # Proxsuite for inverse kinematics with joint limits
     n, n_eq, n_in = 9, 0, 9
     joint_limits_qp = init_prosuite_qp(n, n_eq, n_in)
+
+    # Move the robot to the nominal configuration
+    q_nominal = np.array(test_settings["q_nominal"], dtype=np.float32)
+    bring_to_nominal_q(robot, q_nominal, joint_lb, joint_ub)
+    assert(False)
 
     # Starting ros node
     print("==> Launch ros node...")
@@ -449,7 +455,7 @@ if __name__ == '__main__':
         # Map to the camera speed expressed in the camera frame
         # null_mean = np.eye(2*num_points, dtype=np.float32) - LA.pinv(J_mean) @ J_mean
         # null_position = np.eye(2*num_points, dtype=np.float32) - LA.pinv(J_position) @ J_position
-        # xd_yd = xd_yd_position + null_position @ xd_yd_mean
+        # xd_yd = xd_yd_mean + null_mean @ xd_yd_position
         xd_yd = xd_yd_position
         J_active = J_image_cam[0:2*num_points]
         if observer_config["active"] == 1:
