@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # Choose test settings
     parser = argparse.ArgumentParser(description="Visual servoing")
-    parser.add_argument('--exp_num', default=10, type=int, help="test case number")
+    parser.add_argument('--exp_num', default=11, type=int, help="test case number")
 
     # Set random seed
     seed_num = 0
@@ -193,6 +193,7 @@ if __name__ == '__main__':
     joint_limits_qp = init_prosuite_qp(n, n_eq, n_in)
 
     # Starting ros node
+    print("==> Launch ros node...")
     rospy.init_node('apriltag_detection_node', anonymous=True)
 
     # Create and start the obstacle thread
@@ -332,12 +333,13 @@ if __name__ == '__main__':
 
     # Start the control loop
     print("==> Start the control loop")
+    designed_control_loop_time = test_settings["designed_control_loop_time"]
     dq_executed = np.zeros(9, dtype=np.float32)
     state = robot.get_state()
     q, dq = state['q'], state['dq']
     last_info = pin_robot.getInfo(q,dq)
-    designed_control_loop_time = test_settings["designed_control_loop_time"]
     last_d_true_time = time.time()
+    last_corners_raw = deepcopy(target_corners_global)
     time_start = time.time()
 
     for i in range(100000):
@@ -379,6 +381,15 @@ if __name__ == '__main__':
         omega_in_cam = skew_to_vector(S_in_cam)
         last_speeds_in_cam = np.hstack((v_in_cam, omega_in_cam))
 
+        # Speed contribution due to movement of the apriltag
+        d_true = np.zeros(2*len(corners_raw), dtype=np.float32)
+        current_d_true_time = time.time()
+        dx_dy_raw = (corners_raw - last_corners_raw)/(current_d_true_time - last_d_true_time)
+        dx_dy_raw = np.reshape(dx_dy_raw, (2*len(corners_raw),))
+        d_true = dx_dy_raw - last_J_image_cam_raw @ last_speeds_in_cam
+        last_corners_raw = corners_raw
+        last_d_true_time = current_d_true_time
+
         # Update the disturbance observer
         current_dob_time = time.time()
         dob_dt = current_dob_time - last_dob_time
@@ -419,16 +430,6 @@ if __name__ == '__main__':
         fy = intrinsic_matrix[1, 1]
         for ii in range(len(corners)):
             J_image_cam[2*ii:2*ii+2] = one_point_image_jacobian(coord_in_cam[ii], fx, fy)
-
-        # Speed contribution due to movement of the apriltag
-        d_true = np.zeros(2*len(corners), dtype=np.float32)
-        current_d_true_time = time.time()
-        for ii in range(len(corners)):
-            speed_of_corner_in_world = (coord_in_world_raw[ii,0:3] - last_coord_in_world_raw[ii,0:3])/(current_d_true_time - last_d_true_time)
-            speed_of_corner_in_cam = info["R_CAMERA"].T @ speed_of_corner_in_world.squeeze()
-            d_true[2*ii:2*ii+2] = -J_image_cam[2*ii:2*ii+2,0:3] @ speed_of_corner_in_cam
-        last_coord_in_world_raw = coord_in_world_raw
-        last_d_true_time = current_d_true_time
 
         # Performance controller
         # Compute desired pixel velocity (mean)
@@ -562,8 +563,8 @@ if __name__ == '__main__':
 
         # Robot velocity control
         vel = np.clip(vel, -1.0*np.pi, 1.0*np.pi)
-        # print(vel)
-        # vel = np.zeros_like(vel)
+        print(vel)
+        vel = np.zeros_like(vel)
         if time.time() - time_start > 4:
             robot.send_joint_command(vel[:7])
         else: vel = np.zeros_like(vel)
