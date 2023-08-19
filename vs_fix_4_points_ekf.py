@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
     # Choose test settings
     parser = argparse.ArgumentParser(description="Visual servoing")
-    parser.add_argument('--exp_num', default=4, type=int, help="test case number")
+    parser.add_argument('--exp_num', default=7, type=int, help="test case number")
 
     # Set random seed
     seed_num = 0
@@ -196,7 +196,6 @@ if __name__ == '__main__':
     # Move the robot to the nominal configuration
     q_nominal = np.array(test_settings["q_nominal"], dtype=np.float32)
     bring_to_nominal_q(robot, q_nominal, joint_lb, joint_ub)
-    assert(False)
 
     # Starting ros node
     print("==> Launch ros node...")

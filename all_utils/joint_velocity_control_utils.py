@@ -18,7 +18,7 @@ def bring_to_nominal_q(robot, q0, joint_lb, joint_ub):
     while np.abs(q-q0).max() > 0.05:
         state = robot.get_state()
         q = state['q']
-        grad_joint = 0.1* W @ (q - q0)
+        grad_joint = 50* W @ (q - q0)
         robot.send_joint_command(grad_joint[:7])
     
     robot.send_joint_command(np.zeros(7))
