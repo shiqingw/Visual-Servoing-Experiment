@@ -219,17 +219,23 @@ if __name__ == '__main__':
     offset = target_config["offset"]
     obstacle_corners_in_obs = np.array([[-1,1,0],[1,1,0],[1,-1,0],[-1,-1,0]], dtype=np.float32)*(apriltag_size/2+offset)
     obstacle_corners_in_obs = np.concatenate([obstacle_corners_in_obs, np.ones([4,1], dtype=np.float32)], axis=1)
-    obstacle_pose = deepcopy(obstacle_pose_global)
-    obstacle_ori = deepcopy(obstacle_ori_global)
-    H_obs_to_cam = get_homogeneous_transformation(obstacle_pose, R.from_quat(obstacle_ori).as_matrix())
-    state = robot.get_state()
-    q, dq = state['q'], state['dq']
-    info = pin_robot.getInfo(q,dq)
-    _H = np.hstack((info["R_CAMERA"], np.reshape(info["P_CAMERA"],(3,1))))
-    H_cam_to_world = np.vstack((_H, np.array([[0.0, 0.0, 0.0, 1.0]])))
-    H_obs_to_world = H_cam_to_world @ H_obs_to_cam
-    obstacle_corner_in_world = obstacle_corners_in_obs @ H_obs_to_world.T
+    num_sample = 20
+    obstacle_corner_in_world_samples = np.zeros((num_sample, 4, 4), dtype=np.float32)
+    for i in range(num_sample):
+        # Collect several samples and use the mean
+        obstacle_pose = deepcopy(obstacle_pose_global)
+        obstacle_ori = deepcopy(obstacle_ori_global)
+        H_obs_to_cam = get_homogeneous_transformation(obstacle_pose, R.from_quat(obstacle_ori).as_matrix())
+        state = robot.get_state()
+        q, dq = state['q'], state['dq']
+        info = pin_robot.getInfo(q,dq)
+        _H = np.hstack((info["R_CAMERA"], np.reshape(info["P_CAMERA"],(3,1))))
+        H_cam_to_world = np.vstack((_H, np.array([[0.0, 0.0, 0.0, 1.0]])))
+        H_obs_to_world = H_cam_to_world @ H_obs_to_cam
+        obstacle_corner_in_world_samples[i,:,:] = obstacle_corners_in_obs @ H_obs_to_world.T
+        time.sleep(0.1)
     print("==> Obstacle world coordinates captured:")
+    obstacle_corner_in_world = np.mean(obstacle_corner_in_world_samples, axis=0)
     print(obstacle_corner_in_world)
 
     # Kill obstacle thread
@@ -376,6 +382,7 @@ if __name__ == '__main__':
         corner_depths_raw = coord_in_cam_raw[:,2]
 
         # Speeds excuted in the camera frame
+        dq_executed = dq
         last_J_camera = last_info["J_CAMERA"]
         speeds_in_world = last_J_camera @ dq_executed
         v_in_world = speeds_in_world[0:3]
@@ -457,9 +464,9 @@ if __name__ == '__main__':
         # xd_yd = xd_yd_mean + null_mean @ xd_yd_position
         xd_yd = xd_yd_position
         J_active = J_image_cam[0:2*num_points]
-        if observer_config["active"] == 1:
+        if observer_config["active"] == 1 and time.now() - time_start > observer_config["dob_kick_in_time"]:
             speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ (xd_yd - d_hat_dob[0:2*num_points])
-        elif ekf_config["active"] == 1:
+        elif ekf_config["active"] == 1 and time.now() - time_start > observer_config["ekf_kick_in_time"]:
             speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ (xd_yd - d_hat_ekf)
         else:
             speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ xd_yd
@@ -471,7 +478,7 @@ if __name__ == '__main__':
         obstacle_corner_in_image = obstacle_corner_in_image[:,0:2]
 
         # Solve CBF constraints if it is active
-        if CBF_config["active"] == 0: 
+        if CBF_config["active"] == 0 or time.now() - time_start < CBF_config["cbf_active_time"]: 
             speeds_in_cam = speeds_in_cam_desired
         else:
             # Construct CBF and its constraint
@@ -570,12 +577,13 @@ if __name__ == '__main__':
         vel = np.clip(vel, -1.0*np.pi, 1.0*np.pi)
         # print(vel)
         # vel = np.zeros_like(vel)
-        if time.time() - time_start > 4:
-            robot.send_joint_command(vel[:7])
-        else: vel = np.zeros_like(vel)
+        if time.time() - time_start < ekf_config["wait_ekf"]:
+            vel = np.zeros_like(vel)
+
+        robot.send_joint_command(vel[:7])
 
         # Keep for next loop
-        dq_executed = vel
+        # dq_executed = vel
         last_info = info
 
         # Time the loop 
