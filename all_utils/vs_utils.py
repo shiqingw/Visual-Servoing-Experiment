@@ -16,6 +16,13 @@ def one_point_image_jacobian(coord_in_cam, fx, fy):
 
     return np.vstack((J1, J2))
 
+def one_point_depth_jacobian(coord_in_cam, fx, fy):
+    X = coord_in_cam[0]
+    Y = coord_in_cam[1]
+    Z = coord_in_cam[2]
+    J = np.array([0,0,-1,-Y,X,0], dtype=np.float32)
+    return J
+
 def skew(x):
     return np.array([[0, -x[2], x[1]],
                      [x[2], 0, -x[0]],

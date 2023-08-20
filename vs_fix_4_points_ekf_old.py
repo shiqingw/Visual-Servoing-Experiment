@@ -30,7 +30,7 @@ import os
 import shutil
 import pickle
 import cv2
-from all_utils.vs_utils import get_homogeneous_transformation, one_point_image_jacobian, skew, skew_to_vector, one_point_depth_jacobian
+from all_utils.vs_utils import get_homogeneous_transformation, one_point_image_jacobian, skew, skew_to_vector, point_in_image
 from all_utils.proxsuite_utils import init_prosuite_qp
 from all_utils.cvxpylayers_utils import init_cvxpylayer
 from all_utils.joint_velocity_control_utils import bring_to_nominal_q
@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
     # Choose test settings
     parser = argparse.ArgumentParser(description="Visual servoing")
-    parser.add_argument('--exp_num', default=19, type=int, help="test case number")
+    parser.add_argument('--exp_num', default=18, type=int, help="test case number")
 
     # Set random seed
     seed_num = 0
@@ -283,7 +283,6 @@ if __name__ == '__main__':
                 "info":[],
                 "d_hat_dob": [],
                 "d_true": [],
-                "d_true_z":[],
                 "loop_time": [],
                 "ekf_estimates": [],
                 "dob_dt":[],
@@ -317,6 +316,7 @@ if __name__ == '__main__':
     epsilon = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),))
     d_hat_dob = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),)) - epsilon
     last_dob_time = time.time()
+    last_J_image_cam_raw = np.zeros((2*corners_raw.shape[0], 6), dtype=np.float32)
 
     # EKF initialization
     state = robot.get_state()
@@ -337,11 +337,9 @@ if __name__ == '__main__':
     ekf_init_val = np.zeros((num_points, 9), dtype=np.float32)
     ekf_init_val[:,0:2] = corners_raw[0:len(corners_raw),:]
     ekf_init_val[:,2] = corner_depths_raw[0:len(corners_raw),0]
-    P0_unnormalized = np.diag(ekf_config["P0_unnormalized"])
-    P0 = P0_unnormalized @ np.diag([1/fx**2,1/fy**2,1,1,1,1,1,1,1])
+    P0 = np.diag(ekf_config["P0"])
     Q_cov = np.diag(ekf_config["Q"])
-    R_unnormalized = np.diag(ekf_config["R_unnormalized"])
-    R_cov = R_unnormalized @ np.diag([1/fx**2,1/fy**2,1])
+    R_cov = np.diag(ekf_config["R"])
     ekf = EKF_IBVS(num_points, ekf_init_val, P0, Q_cov, R_cov, fx, fy, cx, cy)
     last_ekf_time = time.time()
 
@@ -354,10 +352,6 @@ if __name__ == '__main__':
     last_info = pin_robot.getInfo(q,dq)
     last_d_true_time = time.time()
     last_corners_raw = deepcopy(target_corners_global)
-    last_d_true_z_time = time.time()
-    last_corner_depths_raw = corner_depths_raw
-    last_J_image_cam_raw = np.zeros((2*corners_raw.shape[0], 6), dtype=np.float32)
-    last_J_depth_raw = np.zeros((corners_raw.shape[0], 6), dtype=np.float32)
     time_start = time.time()
 
     for i in range(100000):
@@ -376,9 +370,7 @@ if __name__ == '__main__':
         info = pin_robot.getInfo(q,dq)
 
         # Target corners and depths
-        current_d_true_time = time.time()
         corners_raw = deepcopy(target_corners_global)
-        current_d_true_z_time = time.time()
         target_pose = deepcopy(target_pose_global)
         target_ori = deepcopy(target_ori_global)
         target_corners_in_target = np.array([[-1,1,0],[1,1,0],[1,-1,0],[-1,-1,0]], dtype=np.float32)*(apriltag_size/2)
@@ -402,19 +394,14 @@ if __name__ == '__main__':
         omega_in_cam = skew_to_vector(S_in_cam)
         last_speeds_in_cam = np.hstack((v_in_cam, omega_in_cam))
 
-        # Speed contribution due to movement of the apriltag (x, y)
+        # Speed contribution due to movement of the apriltag
         d_true = np.zeros(2*len(corners_raw), dtype=np.float32)
+        current_d_true_time = time.time()
         dx_dy_raw = (corners_raw - last_corners_raw)/(current_d_true_time - last_d_true_time)
         dx_dy_raw = np.reshape(dx_dy_raw, (2*len(corners_raw),))
         d_true = dx_dy_raw - last_J_image_cam_raw @ last_speeds_in_cam
         last_corners_raw = corners_raw
         last_d_true_time = current_d_true_time
-
-        # Speed contribution due to movement of the apriltag (Z)
-        dZ_raw = (corner_depths_raw - last_corner_depths_raw)/(current_d_true_z_time - last_d_true_z_time)
-        d_true_z = dZ_raw - last_J_depth_raw @ last_speeds_in_cam
-        last_corner_depths_raw = corner_depths_raw
-        last_d_true_z_time = current_d_true_z_time
 
         # Update the disturbance observer
         current_dob_time = time.time()
@@ -433,9 +420,6 @@ if __name__ == '__main__':
         fy = intrinsic_matrix[1, 1]
         for ii in range(len(corners_raw)):
             last_J_image_cam_raw[2*ii:2*ii+2] = one_point_image_jacobian(coord_in_cam_raw[ii], fx, fy)
-        last_J_depth_raw = np.zeros((corners_raw.shape[0], 6), dtype=np.float32)
-        for ii in range(len(corners_raw)):
-            last_J_depth_raw[ii] = one_point_depth_jacobian(coord_in_cam_raw[ii])
 
         # Step and update the EKF
         current_ekf_time = time.time()
@@ -628,7 +612,6 @@ if __name__ == '__main__':
         history["loop_time"].append(loop_time)
         history["ekf_estimates"].append(ekf_estimates)
         history["d_true"].append(d_true)
-        history["d_true_z"].append(d_true_z)
         history["dob_dt"].append(dob_dt)
         history["ekf_dt"].append(ekf_dt)
         if CBF_config["active"] == 1:

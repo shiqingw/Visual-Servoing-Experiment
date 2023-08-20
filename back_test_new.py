@@ -1,4 +1,4 @@
-from ekf.ekf_ibvs import EKF_IBVS
+from ekf.ekf_ibvs_new import EKF_IBVS
 import numpy as np
 import numpy.linalg as LA
 import pickle
@@ -8,7 +8,7 @@ import shutil
 from all_utils.vs_utils import one_point_image_jacobian, skew, skew_to_vector, one_point_depth_jacobian
 from pathlib import Path
 
-exp_num = 1
+exp_num = 2
 source_file_exp_name = "exp_018_2023-08-19-23-35-02"
 
 # Load test settings
@@ -98,11 +98,11 @@ d_hat_dob = observer_gain @ np.reshape(corners_raw, (2*len(corners_raw),)) - eps
 # Initialize EKF
 num_points = 4
 P0_unnormalized = np.diag(ekf_config["P0_unnormalized"])
-P0 = P0_unnormalized @ np.diag([1/fx**2,1/fy**2,1,1,1,1,1,1,1])
+P0 = P0_unnormalized @ np.diag([1/fx**2,1/fy**2,1,1,1,1,1,1])
 Q_cov = np.diag(ekf_config["Q"])
 R_unnormalized = np.diag(ekf_config["R_unnormalized"])
 R_cov = R_unnormalized @ np.diag([1/fx**2,1/fy**2,1])
-ekf_init_val = np.zeros((num_points, 9), dtype=np.float32)
+ekf_init_val = np.zeros((num_points, 8), dtype=np.float32)
 ekf_init_val[:,0:2] = _corners_raw[0,:,:]
 ekf_init_val[:,2] = _corner_depths_raw[0,:]
 ekf = EKF_IBVS(num_points, ekf_init_val, P0, Q_cov, R_cov, fx, fy, cx, cy)
@@ -132,7 +132,7 @@ for i in range(1,len(_times)):
     corner_depths_raw = _corner_depths_raw[i,:]
 
     # Calculate d_true_z
-    dt = _times[i] - _times[i-1]
+    dt = (_dob_dt[i]+_ekf_dt[i])/2.0
     dZ = (last_corner_depths_raw - corner_depths_raw)/dt
     d_true_z = dZ - last_J_depth_raw @ last_speeds_in_cam
 
