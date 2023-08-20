@@ -37,11 +37,11 @@
     "controller_config":{
         "mean_gain": [0.1,0.1],
         "variance_gain": [0.6,0.6],
-        "variance_target": [1500, 1500],
+        "variance_target": [5000, 5000],
         "horizontal_gain": 1.0,
         "vertical_gain": 1.0,
         "joint_limit_gain": 1,
-        "fix_position_gain": 1,
+        "fix_position_gain": 1.0,
         "desired_relative_position": [0,0,0.5],
         "pbvs_gain_omega": 0.1,
         "pbvs_gain_v": 1.0
@@ -50,7 +50,7 @@
     "optimization_config":{
         "n_cons_obstacle": 4,
         "n_cons_target": 4,
-        "exp_coef": 4e-4,
+        "exp_coef": 3e-4,
         "solver_args": {"eps": 1e-7, "max_iters": 1000}
     },
 
@@ -77,7 +77,7 @@
         "wait_ekf": 2,
         "ekf_kick_in_time": 6,
         "P0": [1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2],
-        "Q": [1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-2, 1e-3, 1e-3],
-        "R": [1e-4, 1e-4, 1e-4]
+        "Q": [1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 5e-3, 5e-3, 5e-3],
+        "R": [2e-3, 2e-3, 2e-3]
     }
 }

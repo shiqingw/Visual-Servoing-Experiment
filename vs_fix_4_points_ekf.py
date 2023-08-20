@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
     # Choose test settings
     parser = argparse.ArgumentParser(description="Visual servoing")
-    parser.add_argument('--exp_num', default=7, type=int, help="test case number")
+    parser.add_argument('--exp_num', default=18, type=int, help="test case number")
 
     # Set random seed
     seed_num = 0
@@ -221,6 +221,7 @@ if __name__ == '__main__':
     obstacle_corners_in_obs = np.concatenate([obstacle_corners_in_obs, np.ones([4,1], dtype=np.float32)], axis=1)
     num_sample = 20
     obstacle_corner_in_world_samples = np.zeros((num_sample, 4, 4), dtype=np.float32)
+    print("==> Collecting multiple samples of the obstacle...")
     for i in range(num_sample):
         # Collect several samples and use the mean
         obstacle_pose = deepcopy(obstacle_pose_global)
@@ -425,6 +426,8 @@ if __name__ == '__main__':
         ekf_dt = current_ekf_time-last_ekf_time
         ekf.predict(ekf_dt, last_speeds_in_cam)
         mesurements = np.hstack((corners_raw, corner_depths_raw[:,np.newaxis]))
+        # fake_depths = np.ones(4)*0.5
+        # mesurements = np.hstack((corners_raw, fake_depths[:,np.newaxis]))
         ekf.update(mesurements)
         last_ekf_time = current_ekf_time
 
@@ -464,9 +467,9 @@ if __name__ == '__main__':
         # xd_yd = xd_yd_mean + null_mean @ xd_yd_position
         xd_yd = xd_yd_position
         J_active = J_image_cam[0:2*num_points]
-        if observer_config["active"] == 1 and time.now() - time_start > observer_config["dob_kick_in_time"]:
+        if observer_config["active"] == 1 and time.time() - time_start > observer_config["dob_kick_in_time"]:
             speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ (xd_yd - d_hat_dob[0:2*num_points])
-        elif ekf_config["active"] == 1 and time.now() - time_start > observer_config["ekf_kick_in_time"]:
+        elif ekf_config["active"] == 1 and time.time() - time_start > ekf_config["ekf_kick_in_time"]:
             speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ (xd_yd - d_hat_ekf)
         else:
             speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ xd_yd
@@ -478,8 +481,9 @@ if __name__ == '__main__':
         obstacle_corner_in_image = obstacle_corner_in_image[:,0:2]
 
         # Solve CBF constraints if it is active
-        if CBF_config["active"] == 0 or time.now() - time_start < CBF_config["cbf_active_time"]: 
+        if CBF_config["active"] == 0 or time.time() - time_start < CBF_config["cbf_active_time"]: 
             speeds_in_cam = speeds_in_cam_desired
+            CBF = 0
         else:
             # Construct CBF and its constraint
             target_coords = torch.tensor(corners, dtype=torch.float32, requires_grad=True)
@@ -574,16 +578,18 @@ if __name__ == '__main__':
         vel[-2:] = 0
 
         # Robot velocity control
-        vel = np.clip(vel, -1.0*np.pi, 1.0*np.pi)
+        vel = np.clip(vel, -0.5*np.pi, 0.5*np.pi)
         # print(vel)
         # vel = np.zeros_like(vel)
         if time.time() - time_start < ekf_config["wait_ekf"]:
             vel = np.zeros_like(vel)
 
+        # if time.time() - time_start < CBF_config["cbf_active_time"]:
+            # robot.send_joint_command(vel[:7])
+
         robot.send_joint_command(vel[:7])
 
         # Keep for next loop
-        # dq_executed = vel
         last_info = info
 
         # Time the loop 
