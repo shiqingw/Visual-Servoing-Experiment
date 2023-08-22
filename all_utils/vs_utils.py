@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 def get_homogeneous_transformation(p, R):
     H = np.eye(4)
@@ -36,3 +37,58 @@ def point_in_image(x, y, width, height):
         if (0 <= y and y < height):
             return True
     return False
+
+def one_point_image_jacobian_normalized(x, y, Z):
+    """
+    x, y: normalized pixel coordinates (x = (x-cx)/fx, y = (y-cy)/fy)
+    Z: depth of the point in camera frame
+    """
+    J1 = np.array([-1/Z, 0, x/Z, x*y, -(1+x**2), y], dtype=np.float32)
+    J2 = np.array([0, -1/Z, y/Z, 1+y**2, -x*y, -x], dtype=np.float32)
+
+    return np.vstack((J1, J2))
+
+def one_point_depth_jacobian_normalized(x, y, Z):
+    """
+    x, y: normalized pixel coordinates (x = (x-cx)/fx, y = (y-cy)/fy)
+    Z: depth of the point in camera frame
+    """
+    J = np.array([0, 0, -1, -y*Z, x*Z, 0], dtype=np.float32)
+    return J
+
+def normalize_one_image_point(x, y, fx, fy, cx, cy):
+    x_norm = (x - cx) / fx
+    y_norm = (y - cy) / fy
+    return x_norm, y_norm
+
+def normalize_corners(corners, fx, fy, cx, cy):
+    """
+    corners: 2D array of shape (N, 2)
+    """
+    corners_norm = np.zeros_like(corners)
+    corners_norm[:, 0] = (corners[:, 0] - cx) / fx
+    corners_norm[:, 1] = (corners[:, 1] - cy) / fy
+
+    return corners_norm
+
+def get_apriltag_corners_cam_and_world_homo_coord(half_apriltag_size, apriltag_pos, apriltag_ori, R_cam_to_world, P_cam_to_world):
+    corners_in_apriltag = np.array([[-1,1,0],[1,1,0],[1,-1,0],[-1,-1,0]], dtype=np.float32)*half_apriltag_size
+    corners_in_apriltag = np.concatenate([corners_in_apriltag, np.ones([4,1], dtype=np.float32)], axis=1)
+    H_apriltag_to_cam = get_homogeneous_transformation(apriltag_pos, R.from_quat(apriltag_ori).as_matrix())
+    _H = np.hstack((R_cam_to_world, np.reshape(P_cam_to_world,(3,1))))
+    H_cam_to_world = np.vstack((_H, np.array([[0.0, 0.0, 0.0, 1.0]])))
+    coord_in_cam = corners_in_apriltag @ H_apriltag_to_cam.T
+    coord_in_world = coord_in_cam @ H_cam_to_world.T
+
+    return coord_in_cam, coord_in_world
+
+def dq_to_speeds_in_cam(dq_executed, J_camera, R_cam_to_world):
+    speeds_in_world = J_camera @ dq_executed
+    v_in_world = speeds_in_world[0:3]
+    omega_in_world = speeds_in_world[3:6]
+    R_world_to_cam = R_cam_to_world.T
+    v_in_cam = R_world_to_cam @ v_in_world
+    S_in_cam = R_world_to_cam @ skew(omega_in_world) @ R_world_to_cam.T
+    omega_in_cam = skew_to_vector(S_in_cam)
+    speeds_in_cam = np.hstack((v_in_cam, omega_in_cam))
+    return speeds_in_cam

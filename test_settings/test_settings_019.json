@@ -41,10 +41,12 @@
         "horizontal_gain": 1.0,
         "vertical_gain": 1.0,
         "joint_limit_gain": 1,
-        "fix_position_gain": 1.0,
         "desired_relative_position": [0,0,0.5],
         "pbvs_gain_omega": 0.1,
-        "pbvs_gain_v": 1.0
+        "pbvs_gain_v": 1.0,
+        "distance_gain":1,
+        "depth_target": 0.5,
+        "fix_position_gain": 1
     },
 
     "optimization_config":{
@@ -76,8 +78,8 @@
         "active_for_cbf": 0,
         "wait_ekf": 2,
         "ekf_kick_in_time": 6,
-        "P0": [0.25, 0.25, 0.001, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2],
-        "Q": [1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1, 1, 1],
-        "R": [0.25, 0.25, 0.001]
+        "P0_unnormalized": [1, 1, 2.5e-5, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4],
+        "Q": [1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1, 1, 1e-2],
+        "R_unnormalized": [1, 1, 2.5e-5]
     }
 }
