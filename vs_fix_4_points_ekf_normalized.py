@@ -648,6 +648,24 @@ if __name__ == '__main__':
         if CBF_config["active"] == 1:
             history["cbf"].append(CBF)
 
+        if test_settings["save_scaling_function"]==1:
+            img_infra1_gray = deepcopy(gray_image_global)
+            A_target_val = A_target_val.detach().numpy()
+            b_target_val = b_target_val.detach().numpy()
+            A_obstacle_val = A_obstacle_val.detach().numpy()
+            b_obstacle_val = b_obstacle_val.detach().numpy()
+            for ii in range(camera_config["width"]):
+                for jj in range(camera_config["height"]):
+                    pp = np.array(normalize_one_image_point(ii,jj,fx,fy,cx,cy))
+                    if np.sum(np.exp(kappa * (A_target_val @ pp - b_target_val))) <= 4:
+                        x, y = ii, jj
+                        img_infra1_gray = cv2.circle(img_infra1_gray, (int(x),int(y)), radius=1, color=(0, 0, 255), thickness=-1)
+                    if np.sum(np.exp(kappa * (A_obstacle_val @ pp - b_obstacle_val))) <= 4:
+                        x, y = ii, jj
+                        img_infra1_gray = cv2.circle(img_infra1_gray, (int(x),int(y)), radius=1, color=(0, 0, 255), thickness=-1)
+            cv2.imwrite(results_dir+'/scaling_functions_'+'{:04d}.{}'.format(i, test_settings["image_save_format"]), img_infra1_gray)
+            print("==> Scaling function saved")
+
         # Wait for the next control loop
         time.sleep(max(designed_control_loop_time - loop_time, 0))
     
