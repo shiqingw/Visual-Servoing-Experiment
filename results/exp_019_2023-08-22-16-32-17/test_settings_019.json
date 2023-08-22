@@ -46,7 +46,7 @@
         "pbvs_gain_v": 1.0,
         "distance_gain":1,
         "depth_target": 0.5,
-        "fix_position_gain": 4
+        "fix_position_gain": 8
     },
 
     "optimization_config":{

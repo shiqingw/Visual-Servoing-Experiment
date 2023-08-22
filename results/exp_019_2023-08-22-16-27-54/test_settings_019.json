@@ -46,7 +46,7 @@
         "pbvs_gain_v": 1.0,
         "distance_gain":1,
         "depth_target": 0.5,
-        "fix_position_gain": 4
+        "fix_position_gain": 5
     },
 
     "optimization_config":{
@@ -63,7 +63,7 @@
         "threshold_lb": 100,
         "barrier_alpha": 1,
         "scaling_lb": 1.03,
-        "compensation": 4
+        "compensation": 3
     },
 
     "observer_config":{

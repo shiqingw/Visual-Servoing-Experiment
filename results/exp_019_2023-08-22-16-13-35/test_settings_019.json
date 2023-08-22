@@ -46,24 +46,24 @@
         "pbvs_gain_v": 1.0,
         "distance_gain":1,
         "depth_target": 0.5,
-        "fix_position_gain": 4
+        "fix_position_gain": 10
     },
 
     "optimization_config":{
         "n_cons_obstacle": 4,
         "n_cons_target": 4,
         "exp_coef": 100,
-        "solver_args": {"eps": 1e-7, "max_iters": 2000}
+        "solver_args": {"eps": 1e-7, "max_iters": 1000}
     },
 
     "CBF_config":{
-        "active": 1,
+        "active": 0,
         "cbf_active_time": 8,
         "threshold_ub": 800,
         "threshold_lb": 100,
         "barrier_alpha": 1,
         "scaling_lb": 1.03,
-        "compensation": 4
+        "compensation": 3
     },
 
     "observer_config":{

@@ -155,6 +155,7 @@ if __name__ == '__main__':
     # Real robot interface
     print("==> Loading real robot interface...")
     robot = FR3Real()
+    # robot = FR3Real(interface_type="joint_torque")
         
     # Various configs
     camera_config = test_settings["camera_config"]
@@ -271,7 +272,7 @@ if __name__ == '__main__':
     history = {"time": [],
                 "q": [],
                 "dq": [],
-                "corners_raw": [],
+                "corners_raw_normalized": [],
                 "corner_depths_raw": [],
                 "obstacle_corner_in_world": [],
                 "obstacle_corner_in_image": [],
@@ -343,7 +344,7 @@ if __name__ == '__main__':
     Q_cov = np.diag(ekf_config["Q"])
     R_unnormalized = np.diag(ekf_config["R_unnormalized"])
     R_cov = R_unnormalized @ np.diag([1/fx**2,1/fy**2,1])
-    ekf = EKF_IBVS(num_points, ekf_init_val, P0, Q_cov, R_cov, fx, fy, cx, cy)
+    ekf = EKF_IBVS(num_points, ekf_init_val, P0, Q_cov, R_cov)
     last_ekf_time = current_sample_time
 
     # Start the control loop
@@ -353,7 +354,7 @@ if __name__ == '__main__':
     last_info = info
     last_d_true_time = current_sample_time
     last_d_true_z_time = current_sample_time
-    lasr_corners_raw_normalized = corners_raw_normalized
+    last_corners_raw_normalized=  corners_raw_normalized
     last_corner_depths_raw = corner_depths_raw
     last_J_image_cam_raw = np.zeros((2*corners_raw.shape[0], 6), dtype=np.float32)
     last_J_depth_raw = np.zeros((corners_raw.shape[0], 6), dtype=np.float32)
@@ -389,8 +390,8 @@ if __name__ == '__main__':
 
         # Speed contribution due to movement of the apriltag (x, y)
         current_d_true_time = current_sample_time
-        d_true = np.zeros(2*len(corners_raw), dtype=np.float32)
-        dx_dy_raw = (corners_raw_normalized - corners_raw_normalized)/(current_d_true_time - last_d_true_time)
+        d_true = np.zeros(2*len(corners_raw_normalized), dtype=np.float32)
+        dx_dy_raw = (corners_raw_normalized - last_corners_raw_normalized)/(current_d_true_time - last_d_true_time)
         dx_dy_raw = np.reshape(dx_dy_raw, (2*len(corners_raw),))
         d_true = dx_dy_raw - last_J_image_cam_raw @ last_speeds_in_cam
         last_corners_raw_normalized = corners_raw_normalized
@@ -529,7 +530,7 @@ if __name__ == '__main__':
             b_obstacle_np = b_obstacle_val.detach().numpy()
             tmp = kappa*(corners_ekf_normalized @ A_obstacle_np.T - b_obstacle_np)
             tmp = np.max(tmp, axis=1)
-            print(tmp)
+            # print(tmp)
 
             if np.min(tmp) > CBF_config["threshold_lb"] or np.max(tmp) > CBF_config["threshold_ub"]: 
                 speeds_in_cam = speeds_in_cam_desired
@@ -631,7 +632,7 @@ if __name__ == '__main__':
         history["time"].append(time_loop_start)
         history["q"].append(q)
         history["dq"].append(dq)
-        history["corners_raw"].append(corners_raw)
+        history["corners_raw_normalized"].append(corners_raw_normalized)
         history["corner_depths_raw"].append(corner_depths_raw)
         history["obstacle_corner_in_world"].append(obstacle_corners_in_world)
         history["obstacle_corner_in_image"].append(obstacle_corner_in_cam)
