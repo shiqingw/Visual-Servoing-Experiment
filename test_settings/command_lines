@@ -3,6 +3,7 @@ sudo python3 unicast_config.py enp0s31f6
 fr3_joint_interface 10.42.0.4 franka velocity                                                                                                                                      
 
  ~/visual_servo_ws ···································································································································································································· ✔  29s 
+roslaunch realsense2_camera rs_camera.launch serial_no:=215322075978 camera:=filming_camera
 roslaunch realsense2_camera rs_camera.launch enable_infra1:=1 depth_fps:=90 infra_fps:=90 depth_width:=640 depth_height:=480 infra_width:=640 infra_height:=480 enable_color:=false
 rosrun rqt_reconfigure rqt_reconfigure
 
