@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     # Choose test settings
     parser = argparse.ArgumentParser(description="Visual servoing")
-    parser.add_argument('--exp_num', default=19, type=int, help="test case number")
+    parser.add_argument('--exp_num', default=20, type=int, help="test case number")
 
     # Set random seed
     seed_num = 0
@@ -484,13 +484,13 @@ if __name__ == '__main__':
         # xd_yd = xd_yd_mean + null_mean @ xd_yd_position
         xd_yd = xd_yd_position
 
-        J_active = J_image_cam_ekf[0:2*num_points]
-        if observer_config["active"] == 1 and time.time() - time_start > observer_config["dob_kick_in_time"]:
-            speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 0.1*np.eye(2*num_points)) @ (xd_yd - d_hat_dob[0:2*num_points])
-        elif ekf_config["active"] == 1 and time.time() - time_start > ekf_config["ekf_kick_in_time"]:
-            speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 0.1*np.eye(2*num_points)) @ (xd_yd - d_hat_ekf)
-        else:
-            speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 0.1*np.eye(2*num_points)) @ xd_yd
+        # J_active = J_image_cam_ekf[0:2*num_points]
+        # if observer_config["active"] == 1 and time.time() - time_start > observer_config["dob_kick_in_time"]:
+        #     speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ (xd_yd - d_hat_dob[0:2*num_points])
+        # elif ekf_config["active"] == 1 and time.time() - time_start > ekf_config["ekf_kick_in_time"]:
+        #     speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ (xd_yd - d_hat_ekf)
+        # else:
+        #     speeds_in_cam_desired = J_active.T @ LA.inv(J_active @ J_active.T + 1*np.eye(2*num_points)) @ xd_yd
 
         J_active = J_image_cam_ekf[0:2*num_points]
         if observer_config["active"] == 1 and time.time() - time_start > observer_config["dob_kick_in_time"]:
