@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+import pypose as pp
+import torch
 
 def get_homogeneous_transformation(p, R):
     H = np.eye(4)
@@ -79,8 +81,10 @@ def get_apriltag_corners_cam_and_world_homo_coord(half_apriltag_size, apriltag_p
     H_cam_to_world = np.vstack((_H, np.array([[0.0, 0.0, 0.0, 1.0]])))
     coord_in_cam = corners_in_apriltag @ H_apriltag_to_cam.T
     coord_in_world = coord_in_cam @ H_cam_to_world.T
+    H_apriltag_to_world = H_apriltag_to_cam @ H_cam_to_world
+    apriltag_SE3_in_world = pp.mat2SE3(torch.tensor(H_apriltag_to_world))
 
-    return coord_in_cam, coord_in_world
+    return coord_in_cam, coord_in_world, apriltag_SE3_in_world
 
 def dq_to_speeds_in_cam(dq_executed, J_camera, R_cam_to_world):
     speeds_in_world = J_camera @ dq_executed
@@ -92,3 +96,21 @@ def dq_to_speeds_in_cam(dq_executed, J_camera, R_cam_to_world):
     omega_in_cam = skew_to_vector(S_in_cam)
     speeds_in_cam = np.hstack((v_in_cam, omega_in_cam))
     return speeds_in_cam
+
+def compute_SE3_mean(SE3_measurements):
+    """
+    SE3_samples: np.array of size Nx7
+    SE3 vector [tx, ty, tz, qx, qy, qz, qw]
+    """
+    SE3_measurements = pp.SE3(SE3_measurements)
+    # Compute mean of SE3 measurements
+    first_measurement = SE3_measurements[0,:] 
+    deltas = np.zeros_like(SE3_measurements)
+    for i in range(len(deltas)):
+        deltas[i,:] = first_measurement.Inv() @ SE3_measurements[i,:]
+    deltas = pp.SE3(deltas)
+    deltas_in_log = pp.Log(deltas)
+    mean_deltas_in_log = pp.se3(deltas_in_log.mean(dim=0))
+    mean_delta = pp.Exp(mean_deltas_in_log)
+    SE3_optimal = first_measurement @ mean_delta
+    return SE3_optimal

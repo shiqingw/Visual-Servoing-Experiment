@@ -148,7 +148,7 @@ class RobotModel:
         )
 
         p_hand, R_hand, q_HAND = self.compute_crude_location(
-            np.eye(3), np.array(([0.0], [0.0], [0.06])), self.FR3_HAND_FRAME_ID
+            np.eye(3), np.array(([0.0], [0.0], [0.02])), self.FR3_HAND_FRAME_ID
         )
 
         p_camera, R_camera, q_CAMERA = self.compute_crude_location(
