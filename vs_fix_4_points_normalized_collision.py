@@ -1,12 +1,11 @@
 import time
-from sys import platform
-if platform == "darwin":
-    print("==> Initializing Julia")
-    time1 = time.time()
-    from julia.api import Julia
-    jl = Julia(compiled_modules=False)
-    time2 = time.time()
-    print("==> Initializing Julia took {} seconds".format(time2-time1))
+
+# print("==> Initializing Julia")
+# time1 = time.time()
+# from julia.api import Julia
+# jl = Julia(compiled_modules=False)
+# time2 = time.time()
+# print("==> Initializing Julia took {} seconds".format(time2-time1))
 
 import argparse
 import json
@@ -255,6 +254,7 @@ if __name__ == '__main__':
     obstacle_corners_in_world = np.mean(obstacle_corners_in_world_samples, axis=0)
     print(obstacle_corners_in_world)
     obstacle_SE3_in_world = compute_SE3_mean(obstacle_SE3_in_world_samples)
+    obstacle_SE3_in_world = np.array(obstacle_SE3_in_world)
     print("==> Obstacle SE3 vector in world:")
     print(obstacle_SE3_in_world)
 
@@ -366,7 +366,7 @@ if __name__ == '__main__':
     target_ori = deepcopy(target_ori_global)
     corners_raw_normalized = normalize_corners(corners_raw, fx, fy, cx, cy)
     apriltag_size = target_config["apriltag_size"]
-    coord_in_cam_raw, coord_in_world_raw = get_apriltag_corners_cam_and_world_homo_coord(
+    coord_in_cam_raw, coord_in_world_raw, _ = get_apriltag_corners_cam_and_world_homo_coord(
         apriltag_size/2, target_pos, target_ori, info["R_CAMERA"], info["P_CAMERA"])
     corner_depths_raw = coord_in_cam_raw[:,2]
     ekf_init_val = np.zeros((num_points, 9), dtype=np.float32)
@@ -414,7 +414,7 @@ if __name__ == '__main__':
         corners_raw_normalized = normalize_corners(corners_raw, fx, fy, cx, cy)
 
         # Target corners and depths
-        coord_in_cam_raw, coord_in_world_raw = get_apriltag_corners_cam_and_world_homo_coord(
+        coord_in_cam_raw, coord_in_world_raw, _ = get_apriltag_corners_cam_and_world_homo_coord(
         apriltag_size/2, target_pos, target_ori, info["R_CAMERA"], info["P_CAMERA"])
         corner_depths_raw = coord_in_cam_raw[:,2]
 
@@ -675,7 +675,9 @@ if __name__ == '__main__':
         history["dob_dt"].append(dob_dt)
         history["ekf_dt"].append(ekf_dt)
         if CBF_config["active"] == 1:
-            history["cbf"].append(CBF)
+            if type(CBF) == np.ndarray:
+                history["cbf"].append(CBF.item())
+            else: history["cbf"].append(CBF)
 
         if test_settings["save_scaling_function"]==1:
             img_infra1_gray = deepcopy(gray_image_global)

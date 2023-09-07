@@ -16,9 +16,10 @@ class DifferentiableCollisionCBF():
         self.num_link_ellipsoids = 7
         self.gamma = gamma
         self.alpha_offset = alpha_offset
+        parent_folder = str(Path(__file__).parent)
 
         # Create the obstacle polygon
-        self.create_obstacle_polygon = Main.include("differentiable_collision_utils/create_obstacle_polygon.jl")
+        self.create_obstacle_polygon = Main.include("{}/create_obstacle_polygon.jl".format(parent_folder))
         if type(polygon_b_in_body) != np.ndarray:
             polygon_b_in_body = np.array(polygon_b_in_body)
         if type(obstacle_r) != np.ndarray:
@@ -31,11 +32,11 @@ class DifferentiableCollisionCBF():
         self.create_obstacle_polygon(polygon_b_in_body, obstacle_r, obstacle_q)
 
         # Create the link ellipsoids
-        self.create_arm_ellipsoid = Main.include("differentiable_collision_utils/create_arm_ellipsoid.jl")
+        self.create_arm_ellipsoid = Main.include("{}/create_arm_ellipsoid.jl".format(parent_folder))
         self.create_arm_ellipsoid()
 
         # Create the differentiable collision
-        self.get_alpha_and_grad = Main.include("differentiable_collision_utils/get_alpha_and_grad.jl")
+        self.get_alpha_and_grad = Main.include("{}/get_alpha_and_grad.jl".format(parent_folder))
 
         self.collision_cbf_qp = init_prosuite_qp(n_v=9, n_eq=0, n_in=self.num_link_ellipsoids*self.num_obstacles)
         self.collision_cbf_qp.settings.eps_abs = 1.0e-6

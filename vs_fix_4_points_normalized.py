@@ -333,7 +333,7 @@ if __name__ == '__main__':
     target_ori = deepcopy(target_ori_global)
     corners_raw_normalized = normalize_corners(corners_raw, fx, fy, cx, cy)
     apriltag_size = target_config["apriltag_size"]
-    coord_in_cam_raw, coord_in_world_raw = get_apriltag_corners_cam_and_world_homo_coord(
+    coord_in_cam_raw, coord_in_world_raw, _ = get_apriltag_corners_cam_and_world_homo_coord(
         apriltag_size/2, target_pos, target_ori, info["R_CAMERA"], info["P_CAMERA"])
     corner_depths_raw = coord_in_cam_raw[:,2]
     ekf_init_val = np.zeros((num_points, 9), dtype=np.float32)
@@ -381,7 +381,7 @@ if __name__ == '__main__':
         corners_raw_normalized = normalize_corners(corners_raw, fx, fy, cx, cy)
 
         # Target corners and depths
-        coord_in_cam_raw, coord_in_world_raw = get_apriltag_corners_cam_and_world_homo_coord(
+        coord_in_cam_raw, coord_in_world_raw, _ = get_apriltag_corners_cam_and_world_homo_coord(
         apriltag_size/2, target_pos, target_ori, info["R_CAMERA"], info["P_CAMERA"])
         corner_depths_raw = coord_in_cam_raw[:,2]
 
