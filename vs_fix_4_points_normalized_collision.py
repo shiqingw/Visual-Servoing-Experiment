@@ -40,7 +40,7 @@ import os
 import shutil
 import pickle
 import cv2
-from all_utils.vs_utils import dq_to_speeds_in_cam, skew, skew_to_vector, compute_SE3_mean
+from all_utils.vs_utils import dq_to_speeds_in_cam, skew, skew_to_vector, compute_SE3_mean, change_quat_format
 from all_utils.vs_utils import one_point_image_jacobian_normalized, one_point_depth_jacobian_normalized
 from all_utils.vs_utils import normalize_one_image_point, normalize_corners, get_apriltag_corners_cam_and_world_homo_coord
 from all_utils.proxsuite_utils import init_prosuite_qp
@@ -268,7 +268,7 @@ if __name__ == '__main__':
         half_length = obstacle_config["apriltag_size"]/2.0 + target_config["offset"]
         polygon_b_in_body = np.array([half_length, half_length, 0.0025, half_length, half_length, 0.0025])
         obstacle_r = obstacle_SE3_in_world[0:3]
-        obstacle_q = obstacle_SE3_in_world[3:7]
+        obstacle_q = change_quat_format(obstacle_SE3_in_world[3:7])
         print("==> Initializing differentiable collision (Julia)")
         time1 = time.time()
         collision_cbf = DifferentiableCollisionCBF(polygon_b_in_body, obstacle_r, obstacle_q, gamma=5.0, alpha_offset=1.03)
@@ -564,7 +564,7 @@ if __name__ == '__main__':
             else:
                 alpha_sol, p_sol = cvxpylayer(A_target_val, b_target_val, A_obstacle_val, b_obstacle_val, 
                                                 solver_args=optimization_config["solver_args"])
-                CBF = alpha_sol.detach().numpy() - CBF_config["scaling_lb"]
+                CBF = alpha_sol.detach().numpy().item() - CBF_config["scaling_lb"]
                 print(CBF)
                 alpha_sol.backward()
 
@@ -587,8 +587,8 @@ if __name__ == '__main__':
                     d_hat_cbf = d_hat_dob
                 else:
                     d_hat_cbf = np.zeros(2*num_points, dtype=np.float32)
-                lb_CBF = -CBF_config["barrier_alpha"]*CBF + CBF_config["compensation"]\
-                        - grad_CBF_disturbance @ d_hat_cbf
+                lb_CBF = [-CBF_config["barrier_alpha"]*CBF + CBF_config["compensation"]\
+                        - grad_CBF_disturbance @ d_hat_cbf]
                 H = np.eye(6)
                 g = -speeds_in_cam_desired
 
@@ -675,9 +675,7 @@ if __name__ == '__main__':
         history["dob_dt"].append(dob_dt)
         history["ekf_dt"].append(ekf_dt)
         if CBF_config["active"] == 1:
-            if type(CBF) == np.ndarray:
-                history["cbf"].append(CBF.item())
-            else: history["cbf"].append(CBF)
+            history["cbf"].append(CBF)
 
         if test_settings["save_scaling_function"]==1:
             img_infra1_gray = deepcopy(gray_image_global)

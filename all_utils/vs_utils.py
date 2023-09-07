@@ -114,3 +114,15 @@ def compute_SE3_mean(SE3_measurements):
     mean_delta = pp.Exp(mean_deltas_in_log)
     SE3_optimal = first_measurement @ mean_delta
     return SE3_optimal
+
+def change_quat_format(q):
+    """
+    change from q = [x y z w] to quat = [w x y z]
+    """
+    quat = np.zeros(4)
+    quat[0] = q[3]
+    quat[1] = q[0]
+    quat[2] = q[1]
+    quat[3] = q[2]
+
+    return quat
