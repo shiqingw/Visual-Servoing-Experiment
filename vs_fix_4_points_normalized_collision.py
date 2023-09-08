@@ -33,7 +33,7 @@ from cvxpylayers.torch import CvxpyLayer
 from PIL import Image
 from scipy.spatial.transform import Rotation as R
 from sensor_msgs.msg import Image
-from RobotModel import RobotModel
+from RobotModel_collision import RobotModel
 from FR3Py.interfaces import FR3Real
 from datetime import datetime
 import os
@@ -271,7 +271,10 @@ if __name__ == '__main__':
         obstacle_q = change_quat_format(obstacle_SE3_in_world[3:7])
         print("==> Initializing differentiable collision (Julia)")
         time1 = time.time()
-        collision_cbf = DifferentiableCollisionCBF(polygon_b_in_body, obstacle_r, obstacle_q, gamma=5.0, alpha_offset=1.03)
+        try:
+            collision_cbf = DifferentiableCollisionCBF(polygon_b_in_body, obstacle_r, obstacle_q, gamma=5.0, alpha_offset=1.03)
+        except:
+            collision_cbf = DifferentiableCollisionCBF(polygon_b_in_body, obstacle_r, obstacle_q, gamma=5.0, alpha_offset=1.03)
         vel = collision_cbf.filter_dq(np.zeros(9), info)
         time2 = time.time()
         print("==> Initializing differentiable collision (Julia) took {} seconds".format(time2-time1))
@@ -592,11 +595,7 @@ if __name__ == '__main__':
                 H = np.eye(6)
                 g = -speeds_in_cam_desired
 
-                cbf_qp.settings.initial_guess = (
-                    proxsuite.proxqp.InitialGuess.WARM_START_WITH_PREVIOUS_RESULT
-                )
                 cbf_qp.update(g=g, C=A_CBF, l=lb_CBF)
-                cbf_qp.settings.eps_abs = 1.0e-9
                 cbf_qp.solve()
 
                 speeds_in_cam = cbf_qp.results.x
@@ -625,11 +624,7 @@ if __name__ == '__main__':
         H = np.eye(9)
         g = - dq_nominal
         C = np.eye(9)*designed_control_loop_time
-        joint_limits_qp.settings.initial_guess = (
-                proxsuite.proxqp.InitialGuess.WARM_START_WITH_PREVIOUS_RESULT
-            )
         joint_limits_qp.update(H=H, g=g, l=joint_lb - q, u=joint_ub - q, C=C)
-        joint_limits_qp.settings.eps_abs = 1.0e-9
         joint_limits_qp.solve()
         vel = joint_limits_qp.results.x
         vel[-2:] = 0

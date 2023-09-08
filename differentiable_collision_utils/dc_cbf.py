@@ -39,24 +39,22 @@ class DifferentiableCollisionCBF():
         self.get_alpha_and_grad = Main.include("{}/get_alpha_and_grad.jl".format(parent_folder))
 
         self.collision_cbf_qp = init_prosuite_qp(n_v=9, n_eq=0, n_in=self.num_link_ellipsoids*self.num_obstacles)
-        self.collision_cbf_qp.settings.eps_abs = 1.0e-6
-        self.collision_cbf_qp.settings.max_iter = 20
 
         self.frame_names = [
-            "LINK3",
-            "LINK4",
-            "LINK5_1",
-            "LINK5_2",
-            "LINK6",
-            "LINK7",
-            "HAND",
+            "LINK3_BB",
+            "LINK4_BB",
+            "LINK5_1_BB",
+            "LINK5_2_BB",
+            "LINK6_BB",
+            "LINK7_BB",
+            "HAND_BB",
         ]
 
     def filter_dq(self, dq_ref, info):
         # update link position and oriention in DifferentiableCollisions
-        rs, qs = compute_rs_qs(info)
+        rs, qs_w_first = compute_rs_qs(info, self.frame_names)
         # compute α's and J's
-        _alphas, Js = self.get_alpha_and_grad(rs, qs)
+        _alphas, Js = self.get_alpha_and_grad(rs, qs_w_first)
         # compute α's and J's
         alphas = []
         Cs = []
@@ -75,9 +73,6 @@ class DifferentiableCollisionCBF():
         lb = -self.gamma * (np.array(alphas)[:, np.newaxis] - self.alpha_offset)
         C = np.concatenate(Cs, axis=0)
 
-        self.collision_cbf_qp.settings.initial_guess = (
-            proxsuite.proxqp.InitialGuess.WARM_START_WITH_PREVIOUS_RESULT
-        )
         self.collision_cbf_qp.update(H =2 * np.eye(9), g=-2 * dq_ref, C=C, l=lb)
         self.collision_cbf_qp.solve()
 
