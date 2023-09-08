@@ -29,7 +29,7 @@ def extract_images_from_rosbag(rosbag_path, topic_name, output_folder):
                     print(f"Error processing image {idx}: {e}")
 
 if __name__ == "__main__":
-    BAG_PATH = '/path/to/your/rosbag.bag'
-    TOPIC_NAME = '/camera/image_raw'  # replace with the correct topic name
-    OUTPUT_FOLDER = '/extracted_images'
+    BAG_PATH = '/home/mocap/visual_servo_ws/2023-09-08-16-19-07.bag'
+    TOPIC_NAME = '/camera/color/image_raw'  # replace with the correct topic name
+    OUTPUT_FOLDER = '/home/mocap/visual_servo_ws/extracted_images/robot'
     extract_images_from_rosbag(BAG_PATH, TOPIC_NAME, OUTPUT_FOLDER)

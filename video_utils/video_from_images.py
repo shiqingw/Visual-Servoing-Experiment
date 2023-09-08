@@ -13,7 +13,7 @@ def renmae_images(image_folder):
     return
 
 def create_video(image_folder, video_name, frame_rate, repeat_to, rotate_by = None):
-    images = [img for img in os.listdir(image_folder) if img.endswith(".bmp")] 
+    images = [img for img in os.listdir(image_folder) if img.endswith(".png")] 
     images.sort()
     # print(images)
 
@@ -50,13 +50,14 @@ if __name__ == "__main__":
     # subfolder = 'external'
     # frame_rate = 30
     # repeat_to = 0
-    # rotate_by = cv2.ROTATE_90_COUNTERCLOCKWISE
+    # rotate_by = cv2.ROTATE_90_CLOCKWISE
 
     subfolder = 'robot'
-    frame_rate = 90
+    frame_rate = 30
     repeat_to = 0
     rotate_by = None
 
-    image_folder = str(Path(__file__).parent) + '/' + subfolder
+    image_folder = "/home/mocap/visual_servo_ws/extracted_images" + '/' + subfolder
+    
     video_name = image_folder + '/' + subfolder + '_video.mp4'
     create_video(image_folder, video_name, frame_rate, repeat_to, rotate_by)
