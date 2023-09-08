@@ -1,12 +1,4 @@
 import time
-
-# print("==> Initializing Julia")
-# time1 = time.time()
-# from julia.api import Julia
-# jl = Julia(compiled_modules=False)
-# time2 = time.time()
-# print("==> Initializing Julia took {} seconds".format(time2-time1))
-
 import argparse
 import json
 import signal
@@ -266,9 +258,9 @@ if __name__ == '__main__':
     # Initialize differentiable collision
     if collision_cbf_config["active"] == 1:
         half_length = obstacle_config["apriltag_size"]/2.0 + target_config["offset"]
-        polygon_b_in_body = np.array([half_length, half_length, 0.0025, half_length, half_length, 0.0025])
-        obstacle_r = obstacle_SE3_in_world[0:3]
-        obstacle_q = change_quat_format(obstacle_SE3_in_world[3:7])
+        polygon_b_in_body = np.array([half_length, half_length, 0.0025, half_length, half_length, 0.0025], dtype=np.float64)
+        obstacle_r = np.array(obstacle_SE3_in_world[0:3], dtype=np.float64)
+        obstacle_q = np.array(change_quat_format(obstacle_SE3_in_world[3:7]), dtype=np.float64)
         print("==> Initializing differentiable collision (Julia)")
         time1 = time.time()
         try:
@@ -635,9 +627,7 @@ if __name__ == '__main__':
 
         # CBF for collision
         if collision_cbf_config["active"] == 1:
-            print(vel)
             vel = collision_cbf.filter_dq(vel, info)
-            print(vel)
             
         if time.time() - time_start < ekf_config["wait_ekf"]:
             vel = np.zeros_like(vel)

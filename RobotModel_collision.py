@@ -35,6 +35,9 @@ class RobotModel:
             "HAND_BB": self.FR3_HAND_BB_FRAME_ID,
             "CAMERA": self.FR3_CAMERA_FRAME_ID,
         }
+
+        self.base_R_offset = np.eye(3)
+        self.base_p_offset = np.zeros((3,1))
         
 
     def compute_crude_location(self, base_R_offset, base_p_offset, frame_id):
